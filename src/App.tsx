@@ -303,7 +303,7 @@ export default function App() {
       </div>
 
       {/* MOBILE BOTTOM NAVIGATION BAR */}
-      <nav className="fixed bottom-0 left-0 right-0 h-16 border-t border-white/5 bg-[#1E293B]/90 backdrop-blur-md flex items-center justify-around z-35 md:hidden px-2">
+      <nav className="fixed bottom-0 left-0 right-0 h-16 border-t border-white/5 bg-[#1E293B]/90 backdrop-blur-md flex items-center justify-around z-50 md:hidden px-2">
         {navItems.slice(0, 5).map(item => {
           const IconComp = item.icon;
           const isActive = activeTab === item.id;
