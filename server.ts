@@ -60,7 +60,7 @@ interface AppSettings {
   botToken: string;
 }
 
-const IS_VERCEL = !!process.env.VERCEL;
+const IS_VERCEL = process.env.VERCEL === "true" || process.env.VERCEL === "1" || (!!process.env.VERCEL && process.env.VERCEL !== "undefined" && process.env.VERCEL !== "false");
 const STORAGE_DIR = IS_VERCEL ? "/tmp/storage" : path.join(process.cwd(), "storage");
 const SRC_STORAGE_DIR = path.join(process.cwd(), "storage");
 
@@ -224,8 +224,14 @@ async function startServer() {
 
   // Write helper
   async function writeJSONFile<T>(filePath: string, data: T): Promise<void> {
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+    try {
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+      console.log(`[File Write] Successfully saved content to: ${filePath}`);
+    } catch (err: any) {
+      console.error(`[File Write ERROR] Failed to write in: ${filePath}`, err);
+      throw new Error(`Filesystem write failed for: ${path.basename(filePath)}. Detail: ${err.message}`);
+    }
   }
 
   // Logging utility function

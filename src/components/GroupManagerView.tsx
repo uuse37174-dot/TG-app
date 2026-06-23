@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { 
   Users, UserPlus, Upload, Search, Trash2, Shield, ShieldAlert,
-  ArrowLeft, ListFilter, Trash, RefreshCw, FileSpreadsheet, Check, CheckSquare, Square
+  ArrowLeft, ListFilter, Trash, RefreshCw, FileSpreadsheet, Check, CheckSquare, Square,
+  Plus, X
 } from "lucide-react";
 import { List, Recipient } from "../types";
 
@@ -27,12 +28,47 @@ export default function GroupManagerView({ selectedListId, onBackToLists, accent
   // Bulk Text Area Import
   const [bulkTextInput, setBulkTextInput] = useState("");
 
+  // Quick Category Add States
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const [quickCategoryName, setQuickCategoryName] = useState("");
+  const [quickCreateError, setQuickCreateError] = useState("");
+
   // Dynamic Bot & Chat ID Auto-Detection States
   const [botInfo, setBotInfo] = useState<any>(null);
   const [detectedChats, setDetectedChats] = useState<any[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectError, setDetectError] = useState("");
   const [addFeedback, setAddFeedback] = useState<string | null>(null);
+
+  const handleCreateQuickCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickCategoryName.trim()) {
+      setQuickCreateError("Name cannot be empty.");
+      return;
+    }
+    setQuickCreateError("");
+
+    try {
+      const res = await fetch("/api/lists", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: quickCategoryName.trim(), isFavorite: false })
+      });
+
+      if (res.ok) {
+        const newList = await res.json();
+        setQuickCategoryName("");
+        setShowQuickCreate(false);
+        await fetchLists();
+        setCurrentListId(newList.id);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setQuickCreateError(err.error || "Failed to create category");
+      }
+    } catch (err: any) {
+      setQuickCreateError(err.message || "Network error");
+    }
+  };
 
   const fetchBotInfo = async () => {
     try {
@@ -295,17 +331,69 @@ export default function GroupManagerView({ selectedListId, onBackToLists, accent
         </div>
 
         {/* Dropdown to switch list category directly */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative">
           <label className="text-xs text-brand-secondary whitespace-nowrap font-semibold uppercase">Selected Category:</label>
-          <select
-            value={currentListId}
-            onChange={(e) => setCurrentListId(e.target.value)}
-            className="bg-brand-card text-brand-text border border-white/10 px-3 py-1.5 rounded-xl text-sm focus:outline-none focus:border-blue-500 font-semibold"
-          >
-            {lists.map(l => (
-              <option key={l.id} value={l.id}>{l.name} ({l.count} entries)</option>
-            ))}
-          </select>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={currentListId}
+              onChange={(e) => setCurrentListId(e.target.value)}
+              className="bg-brand-card text-brand-text border border-white/10 px-3 py-1.5 rounded-xl text-sm focus:outline-none focus:border-blue-500 font-semibold"
+            >
+              {lists.map(l => (
+                <option key={l.id} value={l.id}>{l.name} ({l.count} entries)</option>
+              ))}
+            </select>
+            
+            <button
+              onClick={() => setShowQuickCreate(!showQuickCreate)}
+              className="p-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-xl transition"
+              title="Quick Create Category"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          {showQuickCreate && (
+            <div className="absolute top-full right-0 mt-2 p-4 bg-brand-bg border border-white/10 rounded-2xl shadow-2xl z-50 w-64 space-y-3 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-brand-text">Quick Create Category</span>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowQuickCreate(false);
+                    setQuickCreateError("");
+                  }}
+                  className="p-1 hover:bg-white/5 rounded text-brand-secondary hover:text-brand-text transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              
+              {quickCreateError && (
+                <div className="p-2 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] rounded-lg">
+                  {quickCreateError}
+                </div>
+              )}
+              
+              <form onSubmit={handleCreateQuickCategory} className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="e.g. VIP Buyers"
+                  value={quickCategoryName}
+                  onChange={(e) => setQuickCategoryName(e.target.value)}
+                  className="w-full px-2.5 py-1.5 text-xs bg-brand-card rounded-lg border border-white/10 focus:border-blue-500 text-brand-text focus:outline-none placeholder-slate-500"
+                  required
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="w-full py-1.5 bg-blue-600 hover:bg-blue-500 text-[11px] font-semibold text-white rounded-lg transition"
+                >
+                  Create & Select
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
 

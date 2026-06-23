@@ -17,6 +17,7 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fetchLists = async () => {
     setIsLoading(true);
@@ -38,7 +39,11 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
 
   const handleCreateList = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newListName.trim()) return;
+    if (!newListName.trim()) {
+      setErrorMsg("Please enter a category/list name first.");
+      return;
+    }
+    setErrorMsg(null);
 
     try {
       const res = await fetch("/api/lists", {
@@ -50,9 +55,13 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
       if (res.ok) {
         setNewListName("");
         fetchLists();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setErrorMsg(errData.error || `Failed with server status ${res.status}`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setErrorMsg(e.message || "Failed to make request. Please verify API.");
     }
   };
 
@@ -145,6 +154,12 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
             </h2>
             
             <form onSubmit={handleCreateList} className="space-y-3">
+              {errorMsg && (
+                <div className="p-3 bg-red-500/10 border border-red-500/25 text-red-400 rounded-xl text-xs flex items-start gap-2 animate-pulse">
+                  <span className="font-bold">⚠️</span>
+                  <span>{errorMsg}</span>
+                </div>
+              )}
               <div>
                 <label className="text-xs text-brand-secondary font-medium block mb-1">List Name</label>
                 <input
