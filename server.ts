@@ -59,7 +59,10 @@ interface AppSettings {
   botToken: string;
 }
 
-const STORAGE_DIR = path.join(process.cwd(), "storage");
+const IS_VERCEL = !!process.env.VERCEL;
+const STORAGE_DIR = IS_VERCEL ? "/tmp/storage" : path.join(process.cwd(), "storage");
+const SRC_STORAGE_DIR = path.join(process.cwd(), "storage");
+
 const FILE_LISTS = path.join(STORAGE_DIR, "lists.json");
 const FILE_LIST_RECIPIENTS = (listId: string) => path.join(STORAGE_DIR, `recipients_${listId}.json`);
 const FILE_TEMPLATES = path.join(STORAGE_DIR, "templates.json");
@@ -76,7 +79,19 @@ async function prepareStorage() {
       try {
         await fs.access(filePath);
       } catch {
-        await fs.writeFile(filePath, JSON.stringify(defaultContent, null, 2), "utf-8");
+        let initialData = defaultContent;
+        if (IS_VERCEL) {
+          const fileName = path.basename(filePath);
+          const srcPath = path.join(SRC_STORAGE_DIR, fileName);
+          try {
+            const rawSrc = await fs.readFile(srcPath, "utf-8");
+            initialData = JSON.parse(rawSrc);
+          } catch {
+            // fallback to defaultContent
+          }
+        }
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, JSON.stringify(initialData, null, 2), "utf-8");
       }
     };
 
@@ -186,8 +201,24 @@ async function startServer() {
 
   // Read helper
   async function readJSONFile<T>(filePath: string): Promise<T> {
-    const raw = await fs.readFile(filePath, "utf-8");
-    return JSON.parse(raw);
+    try {
+      const raw = await fs.readFile(filePath, "utf-8");
+      return JSON.parse(raw);
+    } catch (err) {
+      if (IS_VERCEL) {
+        const fileName = path.basename(filePath);
+        const srcPath = path.join(SRC_STORAGE_DIR, fileName);
+        try {
+          const rawSrc = await fs.readFile(srcPath, "utf-8");
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
+          await fs.writeFile(filePath, rawSrc, "utf-8");
+          return JSON.parse(rawSrc);
+        } catch {
+          // fallback
+        }
+      }
+      throw err;
+    }
   }
 
   // Write helper
@@ -1107,26 +1138,35 @@ async function startServer() {
   });
 
   // Vite development/production middleware handling
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+  if (!process.env.VERCEL) {
+    if (process.env.NODE_ENV !== "production") {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`[MessageFlow Studio Express Server] online on http://localhost:${PORT}`);
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[MessageFlow Studio Express Server] online on http://localhost:${PORT}`);
-  });
+  return app;
 }
 
-startServer().catch((err) => {
+const appPromise = startServer().catch((err) => {
   console.error("FATAL: startServer failed:", err);
-  process.exit(1);
+  if (!process.env.VERCEL) {
+    process.exit(1);
+  }
+  throw err;
 });
+
+export default appPromise;
