@@ -3,6 +3,7 @@ import {
   FileText, Search, Star, Trash2, Edit3, Plus, Copy, Check, Save, Sparkles, BookOpen 
 } from "lucide-react";
 import { Template } from "../types";
+import { trackLocalTemplateValue } from "../utils/syncManager";
 
 interface TemplatesProps {
   onSelectCompose: () => void;
@@ -29,7 +30,9 @@ export default function TemplatesView({ onSelectCompose, accentClass }: Template
     try {
       const res = await fetch("/api/templates");
       if (res.ok) {
-        setTemplates(await res.json());
+        const data = await res.json();
+        setTemplates(data);
+        trackLocalTemplateValue(data);
       }
     } catch (e) {
       console.error(e);

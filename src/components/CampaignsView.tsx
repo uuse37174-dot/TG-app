@@ -4,6 +4,7 @@ import {
   HelpCircle, Sparkles, Activity, AlertCircle, CheckCircle, Clock 
 } from "lucide-react";
 import { Campaign, List, Template } from "../types";
+import { trackLocalCampaignValue } from "../utils/syncManager";
 
 interface CampaignsProps {
   onNavigateToMonitor: (campaignId: string) => void;
@@ -30,7 +31,11 @@ export default function CampaignsView({ onNavigateToMonitor, accentClass }: Camp
     setIsLoading(true);
     try {
       const resC = await fetch("/api/campaigns");
-      if (resC.ok) setCampaigns(await resC.json());
+      if (resC.ok) {
+        const cData = await resC.json();
+        setCampaigns(cData);
+        trackLocalCampaignValue(cData);
+      }
 
       const resL = await fetch("/api/lists");
       if (resL.ok) setLists(await resL.json());

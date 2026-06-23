@@ -5,6 +5,7 @@ import {
   Plus, X
 } from "lucide-react";
 import { List, Recipient } from "../types";
+import { trackLocalListValue, trackLocalRecipientListValue } from "../utils/syncManager";
 
 interface GroupManagerProps {
   selectedListId: string | null;
@@ -132,6 +133,7 @@ export default function GroupManagerView({ selectedListId, onBackToLists, accent
       if (res.ok) {
         const data = await res.json() as List[];
         setLists(data);
+        trackLocalListValue(data);
         if (data.length > 0) {
           // If a list was navigated to, use it. Otherwise, default to first list.
           if (selectedListId && data.some(l => l.id === selectedListId)) {
@@ -152,7 +154,9 @@ export default function GroupManagerView({ selectedListId, onBackToLists, accent
     try {
       const res = await fetch(`/api/lists/${currentListId}/recipients`);
       if (res.ok) {
-        setRecipients(await res.json());
+        const data = await res.json();
+        setRecipients(data);
+        trackLocalRecipientListValue(currentListId, data);
       }
     } catch (e) {
       console.error(e);

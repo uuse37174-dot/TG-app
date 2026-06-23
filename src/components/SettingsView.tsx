@@ -5,6 +5,7 @@ import {
   Download, ExternalLink
 } from "lucide-react";
 import { AppSettings } from "../types";
+import { trackLocalSettingsValue } from "../utils/syncManager";
 
 interface SettingsProps {
   onUpdateGlobalSettings: (settings: AppSettings) => void;
@@ -34,6 +35,7 @@ export default function SettingsView({ onUpdateGlobalSettings, accentClass }: Se
         setAccentColor(data.accentColor || "blue");
         setFontSize(data.fontSize || "medium");
         setAnimations(data.animations !== undefined ? data.animations : true);
+        trackLocalSettingsValue(data);
       }
     } catch (e) {
       console.error(e);
@@ -66,6 +68,7 @@ export default function SettingsView({ onUpdateGlobalSettings, accentClass }: Se
       });
       if (res.ok) {
         setSaveSuccess(true);
+        trackLocalSettingsValue(updated);
         onUpdateGlobalSettings(updated);
         setTimeout(() => setSaveSuccess(false), 3000);
       }

@@ -4,6 +4,7 @@ import {
   Layers, Users, ArrowRight, Sparkles 
 } from "lucide-react";
 import { List } from "../types";
+import { trackLocalListValue } from "../utils/syncManager";
 
 interface ListsProps {
   onNavigateToGroupManager: (listId: string) => void;
@@ -24,7 +25,9 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
     try {
       const res = await fetch("/api/lists");
       if (res.ok) {
-        setLists(await res.json());
+        const data = await res.json();
+        setLists(data);
+        trackLocalListValue(data);
       }
     } catch (e) {
       console.error(e);

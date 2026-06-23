@@ -432,6 +432,81 @@ async function startServer() {
     }
   });
 
+  // Aggregated state endpoint to fetch everything (including all lists' recipients) for client-side syncing
+  app.get("/api/sync/state", async (req, res) => {
+    try {
+      const lists = await readJSONFile<List[]>(FILE_LISTS);
+      const templates = await readJSONFile<Template[]>(FILE_TEMPLATES);
+      const campaigns = await readJSONFile<Campaign[]>(FILE_CAMPAIGNS);
+      const settings = await readJSONFile<AppSettings>(FILE_SETTINGS);
+      const logs = await readJSONFile<LogEntry[]>(FILE_LOGS);
+      
+      const recipients: Record<string, any[]> = {};
+      for (const list of lists) {
+        try {
+          recipients[list.id] = await readJSONFile<any[]>(FILE_LIST_RECIPIENTS(list.id));
+        } catch {
+          recipients[list.id] = [];
+        }
+      }
+
+      res.json({
+        lists,
+        templates,
+        campaigns,
+        settings,
+        logs,
+        recipients
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Synchronize / Bulk Restore endpoint for serverless persistence on Vercel
+  app.post("/api/sync/restore", async (req, res) => {
+    try {
+      const { lists, templates, campaigns, settings, logs, recipients } = req.body;
+      
+      console.log("[Sync Restore] Bulk restore requested from client...");
+
+      if (lists && Array.isArray(lists)) {
+        await writeJSONFile(FILE_LISTS, lists);
+        console.log(`[Sync Restore] Restored ${lists.length} lists.`);
+      }
+      if (templates && Array.isArray(templates)) {
+        await writeJSONFile(FILE_TEMPLATES, templates);
+        console.log(`[Sync Restore] Restored ${templates.length} templates.`);
+      }
+      if (campaigns && Array.isArray(campaigns)) {
+        await writeJSONFile(FILE_CAMPAIGNS, campaigns);
+        console.log(`[Sync Restore] Restored ${campaigns.length} campaigns.`);
+      }
+      if (settings && typeof settings === "object") {
+        await writeJSONFile(FILE_SETTINGS, settings);
+        console.log("[Sync Restore] Restored settings.");
+      }
+      if (logs && Array.isArray(logs)) {
+        await writeJSONFile(FILE_LOGS, logs);
+        console.log(`[Sync Restore] Restored ${logs.length} logs.`);
+      }
+      if (recipients && typeof recipients === "object") {
+        for (const listId of Object.keys(recipients)) {
+          if (Array.isArray(recipients[listId])) {
+            await writeJSONFile(FILE_LIST_RECIPIENTS(listId), recipients[listId]);
+            console.log(`[Sync Restore] Restored ${recipients[listId].length} recipients for listId: ${listId}.`);
+          }
+        }
+      }
+
+      await addLog("success", "Application state synchronized from client-side persistent backup.");
+      res.json({ success: true, message: "Restore synchronous merge completed successfully." });
+    } catch (err: any) {
+      console.error("[Sync Restore ERROR]", err);
+      res.status(500).json({ error: "Failed to perform state synchronization restore: " + err.message });
+    }
+  });
+
   // Dashboard Summary Endpoint
   app.get("/api/dashboard/summary", async (req, res) => {
     try {

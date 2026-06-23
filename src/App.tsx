@@ -14,6 +14,7 @@ import SendingEngineView from "./components/SendingEngineView";
 import HistoryLogsView from "./components/HistoryLogsView";
 import SettingsView from "./components/SettingsView";
 import { AppSettings, Campaign } from "./types";
+import { runStorageSync } from "./utils/syncManager";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -34,16 +35,21 @@ export default function App() {
   // Fetch local setup on launch
   const fetchSetup = async () => {
     try {
-      const resS = await fetch("/api/settings");
-      if (resS.ok) {
-        const data = await resS.json();
-        setGlobalSettings(data);
+      // 1. Sync data in case server has restarted or reset (for resilient Vercel persistence)
+      const syncedState = await runStorageSync();
+      if (syncedState.settings) {
+        setGlobalSettings(syncedState.settings);
+      } else {
+        const resS = await fetch("/api/settings");
+        if (resS.ok) {
+          const data = await resS.json();
+          setGlobalSettings(data);
+        }
       }
 
-      const resC = await fetch("/api/campaigns");
-      if (resC.ok) {
-        const campaigns = await resC.json() as Campaign[];
-        const running = campaigns.filter(c => c.status === "running").length;
+      // 2. Load active campaign counts from the synced state campaigns
+      if (syncedState.campaigns) {
+        const running = syncedState.campaigns.filter(c => c.status === "running").length;
         setActiveCampaignCount(running);
       }
     } catch (e) {
