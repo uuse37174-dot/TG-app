@@ -127,16 +127,93 @@ export async function runStorageSync(): Promise<FullSyncPayload> {
 }
 
 // Hook helpers to keep specific database segments persistently mirrored in real-time
+
+// Debounced restore helper to post local storage to the server
+let restoreTimeout: any = null;
+export function triggerBackgroundRestore(): void {
+  if (restoreTimeout) return;
+  restoreTimeout = setTimeout(async () => {
+    try {
+      console.log("[SyncManager] Debounced restore triggered because server is missing some local elements...");
+      const localState = getFullLocalState();
+      await fetch("/api/sync/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(localState)
+      });
+    } catch (e) {
+      console.error("[SyncManager] Background restore sync payload write failed:", e);
+    } finally {
+      restoreTimeout = null;
+    }
+  }, 150);
+}
+
 export function trackLocalListValue(updatedLists: List[]): void {
-  saveLocalData(KEY_LISTS, updatedLists);
+  const localLists = getLocalData<List[]>(KEY_LISTS, []);
+  
+  // Custom lists are those whose IDs are not 'buyers', 'marketing', 'crypto'
+  const isDefaultList = (id: string) => id === "buyers" || id === "marketing" || id === "crypto";
+  const localCustomLists = localLists.filter(l => !isDefaultList(l.id));
+  const serverIds = new Set(updatedLists.map(l => l.id));
+  
+  const missingCustomLists = localCustomLists.filter(l => !serverIds.has(l.id));
+  
+  if (missingCustomLists.length > 0) {
+    console.log("[SyncManager] Server lists is missing custom categories! Merging back...", missingCustomLists);
+    const merged = [...updatedLists];
+    for (const item of missingCustomLists) {
+      merged.push(item);
+    }
+    saveLocalData(KEY_LISTS, merged);
+    triggerBackgroundRestore();
+  } else {
+    saveLocalData(KEY_LISTS, updatedLists);
+  }
 }
 
 export function trackLocalTemplateValue(updatedTemplates: Template[]): void {
-  saveLocalData(KEY_TEMPLATES, updatedTemplates);
+  const localTemplates = getLocalData<Template[]>(KEY_TEMPLATES, []);
+  
+  const isDefaultTemplate = (id: string) => id === "t1" || id === "t2";
+  const localCustom = localTemplates.filter(t => !isDefaultTemplate(t.id));
+  const serverIds = new Set(updatedTemplates.map(t => t.id));
+  
+  const missingCustom = localCustom.filter(t => !serverIds.has(t.id));
+  
+  if (missingCustom.length > 0) {
+    console.log("[SyncManager] Server templates is missing custom templates! Merging back...", missingCustom);
+    const merged = [...updatedTemplates];
+    for (const item of missingCustom) {
+      merged.push(item);
+    }
+    saveLocalData(KEY_TEMPLATES, merged);
+    triggerBackgroundRestore();
+  } else {
+    saveLocalData(KEY_TEMPLATES, updatedTemplates);
+  }
 }
 
 export function trackLocalCampaignValue(updatedCampaigns: Campaign[]): void {
-  saveLocalData(KEY_CAMPAIGNS, updatedCampaigns);
+  const localCampaigns = getLocalData<Campaign[]>(KEY_CAMPAIGNS, []);
+  
+  const isDefaultCampaign = (id: string) => id === "c1" || id === "c2";
+  const localCustom = localCampaigns.filter(c => !isDefaultCampaign(c.id));
+  const serverIds = new Set(updatedCampaigns.map(c => c.id));
+  
+  const missingCustom = localCustom.filter(c => !serverIds.has(c.id));
+  
+  if (missingCustom.length > 0) {
+    console.log("[SyncManager] Server campaigns is missing custom campaigns! Merging back...", missingCustom);
+    const merged = [...updatedCampaigns];
+    for (const item of missingCustom) {
+      merged.push(item);
+    }
+    saveLocalData(KEY_CAMPAIGNS, merged);
+    triggerBackgroundRestore();
+  } else {
+    saveLocalData(KEY_CAMPAIGNS, updatedCampaigns);
+  }
 }
 
 export function trackLocalSettingsValue(settings: AppSettings): void {
@@ -149,6 +226,110 @@ export function trackLocalLogsValue(updatedLogs: LogEntry[]): void {
 
 export function trackLocalRecipientListValue(listId: string, recipients: Recipient[]): void {
   const currentMap = getLocalData<Record<string, Recipient[]>>(KEY_RECIPIENTS, {});
-  currentMap[listId] = recipients;
+  const localRecipients = currentMap[listId] || [];
+  
+  const serverIds = new Set(recipients.map(r => r.id));
+  
+  if (localRecipients.length > recipients.length) {
+    console.log(`[SyncManager] Server recipients for list ${listId} is missing items! Merging back...`);
+    const merged = [...recipients];
+    for (const item of localRecipients) {
+      if (!serverIds.has(item.id)) {
+        merged.push(item);
+      }
+    }
+    currentMap[listId] = merged;
+    saveLocalData(KEY_RECIPIENTS, currentMap);
+    triggerBackgroundRestore();
+  } else {
+    currentMap[listId] = recipients;
+    saveLocalData(KEY_RECIPIENTS, currentMap);
+  }
+}
+
+// OPTIMISTIC LOCAL STORAGE MUTATIONS (CLIENT-FIRST SOURCE-OF-TRUTH)
+
+export function optimisticAddList(newList: List): void {
+  const local = getLocalData<List[]>(KEY_LISTS, []);
+  if (!local.some(l => l.id === newList.id)) {
+    local.push(newList);
+    saveLocalData(KEY_LISTS, local);
+  }
+  triggerBackgroundRestore();
+}
+
+export function optimisticDeleteList(id: string): void {
+  const local = getLocalData<List[]>(KEY_LISTS, []);
+  const filtered = local.filter(l => l.id !== id);
+  saveLocalData(KEY_LISTS, filtered);
+  
+  // also clean corresponding recipients
+  const recipientsMap = getLocalData<Record<string, Recipient[]>>(KEY_RECIPIENTS, {});
+  delete recipientsMap[id];
+  saveLocalData(KEY_RECIPIENTS, recipientsMap);
+  
+  triggerBackgroundRestore();
+}
+
+export function optimisticUpdateList(id: string, updatedFields: Partial<List>): void {
+  const local = getLocalData<List[]>(KEY_LISTS, []);
+  const idx = local.findIndex(l => l.id === id);
+  if (idx !== -1) {
+    local[idx] = { ...local[idx], ...updatedFields };
+    saveLocalData(KEY_LISTS, local);
+  }
+  triggerBackgroundRestore();
+}
+
+export function optimisticAddRecipient(listId: string, recipient: Recipient): void {
+  const currentMap = getLocalData<Record<string, Recipient[]>>(KEY_RECIPIENTS, {});
+  const recipients = currentMap[listId] || [];
+  if (!recipients.some(r => r.id === recipient.id)) {
+    recipients.push(recipient);
+    currentMap[listId] = recipients;
+    saveLocalData(KEY_RECIPIENTS, currentMap);
+    
+    // Increment count on list
+    const lists = getLocalData<List[]>(KEY_LISTS, []);
+    const lIdx = lists.findIndex(l => l.id === listId);
+    if (lIdx !== -1) {
+      lists[lIdx].count = (lists[lIdx].count || 0) + 1;
+      saveLocalData(KEY_LISTS, lists);
+    }
+  }
+  triggerBackgroundRestore();
+}
+
+export function optimisticDeleteRecipient(listId: string, recId: string): void {
+  const currentMap = getLocalData<Record<string, Recipient[]>>(KEY_RECIPIENTS, {});
+  const recipients = currentMap[listId] || [];
+  const filtered = recipients.filter(r => r.id !== recId);
+  
+  const removedCountHandler = recipients.length - filtered.length;
+  currentMap[listId] = filtered;
   saveLocalData(KEY_RECIPIENTS, currentMap);
+  
+  if (removedCountHandler > 0) {
+    // Decrement count on list
+    const lists = getLocalData<List[]>(KEY_LISTS, []);
+    const lIdx = lists.findIndex(l => l.id === listId);
+    if (lIdx !== -1) {
+      lists[lIdx].count = Math.max(0, (lists[lIdx].count || 0) - removedCountHandler);
+      saveLocalData(KEY_LISTS, lists);
+    }
+  }
+  
+  triggerBackgroundRestore();
+}
+
+export function optimisticUpdateRecipient(listId: string, recId: string, updatedFields: Partial<Recipient>): void {
+  const currentMap = getLocalData<Record<string, Recipient[]>>(KEY_RECIPIENTS, {});
+  const recipients = currentMap[listId] || [];
+  const idx = recipients.findIndex(r => r.id === recId);
+  if (idx !== -1) {
+    recipients[idx] = { ...recipients[idx], ...updatedFields };
+    currentMap[listId] = recipients;
+    saveLocalData(KEY_RECIPIENTS, currentMap);
+  }
+  triggerBackgroundRestore();
 }

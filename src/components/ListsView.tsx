@@ -4,7 +4,7 @@ import {
   Layers, Users, ArrowRight, Sparkles 
 } from "lucide-react";
 import { List } from "../types";
-import { trackLocalListValue } from "../utils/syncManager";
+import { trackLocalListValue, optimisticAddList, optimisticDeleteList, optimisticUpdateList } from "../utils/syncManager";
 
 interface ListsProps {
   onNavigateToGroupManager: (listId: string) => void;
@@ -56,6 +56,8 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
       });
 
       if (res.ok) {
+        const created = await res.json();
+        optimisticAddList(created);
         setNewListName("");
         fetchLists();
       } else {
@@ -76,6 +78,7 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
         body: JSON.stringify({ isFavorite: !list.isFavorite })
       });
       if (res.ok) {
+        optimisticUpdateList(list.id, { isFavorite: !list.isFavorite });
         fetchLists();
       }
     } catch (e) {
@@ -89,6 +92,7 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
     try {
       const res = await fetch(`/api/lists/${id}`, { method: "DELETE" });
       if (res.ok) {
+        optimisticDeleteList(id);
         fetchLists();
       }
     } catch (e) {
@@ -100,6 +104,8 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
     try {
       const res = await fetch(`/api/lists/${id}/duplicate`, { method: "POST" });
       if (res.ok) {
+        const duplicated = await res.json();
+        optimisticAddList(duplicated);
         fetchLists();
       }
     } catch (e) {
@@ -121,6 +127,7 @@ export default function ListsView({ onNavigateToGroupManager, accentClass }: Lis
         body: JSON.stringify({ name: editingListName.trim() })
       });
       if (res.ok) {
+        optimisticUpdateList(id, { name: editingListName.trim() });
         setEditingListId(null);
         fetchLists();
       }

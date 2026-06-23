@@ -5,7 +5,7 @@ import {
   Plus, X
 } from "lucide-react";
 import { List, Recipient } from "../types";
-import { trackLocalListValue, trackLocalRecipientListValue } from "../utils/syncManager";
+import { trackLocalListValue, trackLocalRecipientListValue, optimisticAddList, optimisticAddRecipient, optimisticDeleteRecipient, optimisticUpdateRecipient } from "../utils/syncManager";
 
 interface GroupManagerProps {
   selectedListId: string | null;
@@ -58,6 +58,7 @@ export default function GroupManagerView({ selectedListId, onBackToLists, accent
 
       if (res.ok) {
         const newList = await res.json();
+        optimisticAddList(newList);
         setQuickCategoryName("");
         setShowQuickCreate(false);
         await fetchLists();
@@ -231,6 +232,7 @@ export default function GroupManagerView({ selectedListId, onBackToLists, accent
         body: JSON.stringify({ enabled: !recipient.enabled })
       });
       if (res.ok) {
+        optimisticUpdateRecipient(currentListId, recipient.id, { enabled: !recipient.enabled });
         setRecipients(prev => prev.map(r => r.id === recipient.id ? { ...r, enabled: !r.enabled } : r));
       }
     } catch (e) {
@@ -244,6 +246,7 @@ export default function GroupManagerView({ selectedListId, onBackToLists, accent
         method: "DELETE"
       });
       if (res.ok) {
+        optimisticDeleteRecipient(currentListId, id);
         setRecipients(prev => prev.filter(r => r.id !== id));
       }
     } catch (e) {
