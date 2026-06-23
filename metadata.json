@@ -1,0 +1,6 @@
+{
+  "name": "MessageFlow Studio",
+  "description": "A professional and modern Telegram message management studio and campaign runner.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
