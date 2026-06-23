@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { 
   Settings, Bot, Paintbrush, Sliders, ToggleLeft, ToggleRight, 
-  Save, Sparkles, RefreshCw, AlertCircle, CheckCircle, BookOpen 
+  Save, Sparkles, RefreshCw, AlertCircle, CheckCircle, BookOpen,
+  Download, ExternalLink
 } from "lucide-react";
 import { AppSettings } from "../types";
 
@@ -238,6 +239,66 @@ export default function SettingsView({ onUpdateGlobalSettings, accentClass }: Se
                     <ToggleLeft className="w-12 h-12 text-brand-secondary" />
                   )}
                 </button>
+              </div>
+            </div>
+
+            {/* Deploy & Export Suite */}
+            <div className="glass-panel p-6 rounded-2xl shadow-xl space-y-4 border border-blue-500/15 bg-gradient-to-br from-slate-900/10 via-blue-950/5 to-slate-900/10">
+              <div className="border-b border-white/5 pb-2">
+                <h3 className="text-sm font-semibold text-brand-text flex items-center gap-2">
+                  <Download className="w-4.5 h-4.5 text-blue-400" />
+                  Direct Download & Vercel Export Suite
+                </h3>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-[11px] text-brand-secondary leading-relaxed">
+                  Since you are on a <b>mobile device</b>, we've enabled an automated export engine that bundles your complete application instantly!
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Direct download card */}
+                  <a
+                    href="/api/export-zip"
+                    download="messageflow-studio-vercel.zip"
+                    className="p-3.5 bg-blue-500/10 hover:bg-blue-500/15 rounded-xl border border-blue-500/20 flex flex-col justify-between group transition cursor-pointer select-none text-left"
+                  >
+                    <div>
+                      <span className="text-[11.5px] font-bold text-blue-400 block mb-0.5 group-hover:text-blue-300">
+                        📦 Download Project ZIP
+                      </span>
+                      <span className="text-[10px] text-slate-300 leading-normal block">
+                        Direct download of your fully configured Express, Vite & Vercel codebase.
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-blue-400/80 mt-2.5 flex items-center gap-1 font-semibold">
+                      <Download className="w-3.5 h-3.5" /> Tap to Download ZIP
+                    </span>
+                  </a>
+
+                  {/* Vercel instructions card */}
+                  <div className="p-3.5 bg-slate-900/40 rounded-xl border border-white/5 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[11.5px] font-bold text-brand-text block mb-1">
+                        ⚡ Deploy to Vercel (Mobile)
+                      </span>
+                      <ul className="list-decimal pl-3 text-[10px] text-slate-300 space-y-1">
+                        <li>Extract/Open the `.zip` file.</li>
+                        <li>Upload it to your GitHub on <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 inline-flex items-center gap-0.5 font-semibold hover:underline">github.com <ExternalLink className="w-2.5 h-2.5" /></a></li>
+                        <li>Import your repo into Vercel and it's online!</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 space-y-1.5">
+                  <p className="text-[10.5px] font-semibold text-blue-300 flex items-center gap-1">
+                    💡 Native Google AI Studio Export:
+                  </p>
+                  <p className="text-[10.5px] text-slate-300 leading-relaxed">
+                    You can also look at the top-right of the AI Studio build workspace and tap the <b>Settings Menu</b> to select <b>"Export to GitHub"</b> directly!
+                  </p>
+                </div>
               </div>
             </div>
 

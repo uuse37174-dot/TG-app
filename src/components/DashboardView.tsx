@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { 
   Layers, Send, FileText, Activity, CheckCircle, 
-  AlertCircle, ArrowRight, Play, Pause, RefreshCw, Bot
+  AlertCircle, ArrowRight, Play, Pause, RefreshCw, Bot,
+  Download, ExternalLink
 } from "lucide-react";
 import { DashboardSummary, Campaign, List, Template } from "../types";
 
@@ -83,6 +84,45 @@ export default function DashboardView({ onNavigate, accentClass }: DashboardProp
           <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
           Refresh Stats
         </button>
+      </div>
+
+      {/* Code Export & Mobile Deployment Hub */}
+      <div className="glass-panel p-5 rounded-2xl shadow-xl border border-blue-500/20 bg-gradient-to-br from-blue-950/20 via-[#0F1728]/80 to-indigo-950/15 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+          <div>
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-blue-500 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              </span>
+              📥 Direct Code Explorer & ZIP Export
+            </h2>
+            <p className="text-[10.5px] text-brand-secondary mt-0.5">
+              Since you are on mobile, use this card to download your entire configured project bundle instantly!
+            </p>
+          </div>
+          <a
+            href="/api/export-zip"
+            download="messageflow-studio-vercel.zip"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-[12px] rounded-xl shadow-lg shadow-blue-500/10 active:scale-95 transition"
+          >
+            <Download className="w-4 h-4 text-white" />
+            Download Project ZIP
+          </a>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[10.5px]">
+          <div className="bg-black/25 p-3 rounded-xl border border-white/5 space-y-1">
+            <span className="font-semibold text-blue-400 block">🚀 Ready for Vercel</span>
+            <p className="text-slate-300 leading-normal">
+              Codebase contains all production ready integrations: <code className="bg-white/5 px-1 py-0.5 rounded text-amber-200">vercel.json</code> and <code className="bg-white/5 px-1 py-0.5 rounded text-amber-200">/api/index.ts</code> are fully configured!
+            </p>
+          </div>
+          <div className="bg-black/25 p-3 rounded-xl border border-white/5 space-y-1">
+            <span className="font-semibold text-brand-text block block">⚡ How to Use ZIP</span>
+            <p className="text-slate-350 leading-normal">
+              Extract the ZIP on your device or upload directly to <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 font-semibold hover:underline inline-flex items-center gap-0.5">github.com <ExternalLink className="w-2.5 h-2.5" /></a> to import directly into Vercel or any server system.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Metrics Banner */}

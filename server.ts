@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs/promises";
 import { createServer as createViteServer } from "vite";
+import AdmZip from "adm-zip";
 
 interface Recipient {
   id: string;
@@ -97,13 +98,13 @@ async function prepareStorage() {
 
     // Lists setup
     await checkOrCreate(FILE_LISTS, [
-      { id: " buyers", name: "Buyers Group", isFavorite: true, count: 3, created_at: new Date().toISOString() },
+      { id: "buyers", name: "Buyers Group", isFavorite: true, count: 3, created_at: new Date().toISOString() },
       { id: "marketing", name: "Marketing Targets", isFavorite: false, count: 2, created_at: new Date().toISOString() },
       { id: "crypto", name: "Crypto Enthusiasts", isFavorite: true, count: 4, created_at: new Date().toISOString() },
     ]);
 
     // Recipient list files setup
-    await checkOrCreate(FILE_LIST_RECIPIENTS(" buyers"), [
+    await checkOrCreate(FILE_LIST_RECIPIENTS("buyers"), [
       { id: "r1", identifier: "@buyer_mark", type: "username", enabled: true, name: "Mark Peterson", addedAt: new Date().toISOString() },
       { id: "r2", identifier: "https://t.me/alice_sales", type: "link", enabled: true, name: "Alice", addedAt: new Date().toISOString() },
       { id: "r3", identifier: "54231892", type: "id", enabled: true, name: "Premium Client #13", addedAt: new Date().toISOString() }
@@ -223,6 +224,7 @@ async function startServer() {
 
   // Write helper
   async function writeJSONFile<T>(filePath: string, data: T): Promise<void> {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
   }
 
@@ -385,6 +387,44 @@ async function startServer() {
   }
 
   // --- REST ENDPOINTS ---
+
+  // Export App codebase as ZIP
+  app.get("/api/export-zip", async (req, res) => {
+    try {
+      const zip = new AdmZip();
+      const rootFilesAndDirs = await fs.readdir(process.cwd(), { withFileTypes: true });
+
+      for (const entry of rootFilesAndDirs) {
+        const name = entry.name;
+        if (
+          name === "node_modules" ||
+          name === "dist" ||
+          name === ".git" ||
+          name === ".env" ||
+          name === "server.js" ||
+          name === "package-lock.json"
+        ) {
+          continue;
+        }
+
+        const fullPath = path.join(process.cwd(), name);
+        if (entry.isDirectory()) {
+          zip.addLocalFolder(fullPath, name);
+        } else {
+          zip.addLocalFile(fullPath);
+        }
+      }
+
+      const zipBuffer = zip.toBuffer();
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", "attachment; filename=messageflow-studio-vercel.zip");
+      res.setHeader("Content-Length", zipBuffer.length);
+      res.send(zipBuffer);
+    } catch (err: any) {
+      console.error("Zip generation error:", err);
+      res.status(500).json({ error: "Failed to generate zip export: " + err.message });
+    }
+  });
 
   // Dashboard Summary Endpoint
   app.get("/api/dashboard/summary", async (req, res) => {
